@@ -1,0 +1,12 @@
+# Shell scripts must keep LF endings or they break inside the Linux container.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.mp4 binary
