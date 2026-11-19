@@ -1,14 +1,19 @@
-FROM nginx:1.27-alpine
+FROM node:22-alpine
 
-RUN apk add --no-cache openssl
+# su-exec lets the start script fix /data ownership as root, then drop to the "node" user.
+RUN apk add --no-cache su-exec
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY docker/40-basic-auth.sh /docker-entrypoint.d/40-basic-auth.sh
-COPY docker/gen-index.sh /usr/local/bin/gen-index.sh
-RUN chmod +x /docker-entrypoint.d/40-basic-auth.sh /usr/local/bin/gen-index.sh
+WORKDIR /app
+COPY server.js ./
+COPY public ./public
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh && mkdir -p /data && chown node:node /data
 
-COPY pages/ /usr/share/nginx/html/
-RUN /usr/local/bin/gen-index.sh /usr/share/nginx/html
+ENV NODE_ENV=production \
+    PORT=3000 \
+    DATA_DIR=/data
 
-EXPOSE 80
-HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1/healthz || exit 1
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1:3000/healthz || exit 1
+
+ENTRYPOINT ["/usr/local/bin/start.sh"]

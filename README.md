@@ -1,38 +1,51 @@
 # content.vngnc.net
 
-Password-protected static HTML showcase (nginx + basic auth).
+Small HTML showcase with an admin panel. Upload an HTML file (or paste HTML),
+pick a URL or get a random one, and share the link.
 
-## Adding a page
+- **Admin panel:** `content.vngnc.net/admin` (login screen)
+- **Pages:** `content.vngnc.net/<url>` — public to anyone with the link, or
+  protected by a per-page viewer password you set in the panel.
+- `content.vngnc.net/` lists nothing, so pages can't be discovered.
 
-Drop files into `pages/`, commit, push. Coolify redeploys via webhook.
-
-| File in repo                      | URL                                   |
-|-----------------------------------|---------------------------------------|
-| `pages/mypage1.html`              | `content.vngnc.net/mypage1`           |
-| `pages/demo/index.html` (+assets) | `content.vngnc.net/demo/`             |
-
-Use the folder form when a page has its own images/CSS/JS, and reference them
-with relative paths (`./style.css`).
-
-`content.vngnc.net/` shows an auto-generated list of all pages. Add your own
-`pages/index.html` to replace it.
+No dependencies: plain Node.js 22 standard library.
 
 ## Coolify setup
 
-1. New Resource → your Git repo → **Build Pack: Dockerfile**.
-2. **Ports Exposes:** `80`.
-3. **Domains:** `https://content.vngnc.net`.
+1. **Build Pack:** Dockerfile. **Ports Exposes:** `3000`.
+2. **Domain:** `https://content.vngnc.net`.
+3. **Persistent Storage:** add a volume with destination path **`/data`**.
+   Without it, uploaded pages are lost on every redeploy (the panel shows a
+   warning if it's missing).
 4. **Environment variables:**
-   - `BASIC_AUTH_PASSWORD` (required — container won't start without it)
-   - `BASIC_AUTH_USER` (optional, default `admin`)
-5. Enable auto-deploy / webhook as with your other apps.
-6. DNS: `A` record `content` → your VPS IP (skip if you have a `*` wildcard).
 
-Health check: `/healthz` (not password protected).
+   | Variable          | Required | Default | Notes                                          |
+   |-------------------|----------|---------|------------------------------------------------|
+   | `ADMIN_PASSWORD`  | yes      | —       | Changing it logs out all admin sessions        |
+   | `ADMIN_USER`      | no       | `admin` |                                                |
+   | `MAX_UPLOAD_MB`   | no       | `20`    |                                                |
+   | `SANDBOX_PAGES`   | no       | `true`  | See below                                      |
+
+   (`BASIC_AUTH_PASSWORD` / `BASIC_AUTH_USER` from the old version still work.)
+
+## Data
+
+Everything lives in `/data`: `pages/<url>.html`, `pages.json` (titles, view
+counts, password hashes) and `.secret` (signs login cookies). Back up that
+volume to back up the site.
+
+## Sandboxing
+
+Uploaded pages are served with `Content-Security-Policy: sandbox …`, so their
+scripts run in an isolated origin and can't act on your admin session. Scripts,
+forms, popups and downloads still work, but `localStorage`, cookies and
+same-site `fetch` inside a page do not. If a page needs those, set
+`SANDBOX_PAGES=false`.
 
 ## Run locally
 
 ```bash
-docker build -t content .
-docker run --rm -p 8080:80 -e BASIC_AUTH_PASSWORD=test content
+ADMIN_PASSWORD=test DATA_DIR=./data node server.js
 ```
+
+Then open http://localhost:3000/admin.
